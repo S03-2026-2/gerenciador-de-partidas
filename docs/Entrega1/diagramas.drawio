@@ -1,10 +1,10 @@
 <mxfile host="65bd71144e" pages="2">
-    <diagram name="Página-1" id="KmEj8H5UkM2HuIg0Tm6a">
-        <mxGraphModel dx="2849" dy="1033" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <diagram name="Casos de Uso" id="KmEj8H5UkM2HuIg0Tm6a">
+        <mxGraphModel dx="2894" dy="1253" grid="1" gridSize="10" guides="0" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                <mxCell id="2" value="" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
                     <mxGeometry x="-900" y="70" width="1630" height="820" as="geometry"/>
                 </mxCell>
                 <mxCell id="8CtaU0GuA96SGtvwhouZ-23" value="" style="shape=folder;fontStyle=1;spacingTop=10;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;" parent="1" vertex="1">
@@ -123,8 +123,8 @@
             </root>
         </mxGraphModel>
     </diagram>
-    <diagram id="kejFQU6EIa3yBdiVhxwI" name="Página-2">
-        <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <diagram id="46PsEXEvxXPYZSHXG21L" name="UML de Classes">
+        <mxGraphModel dx="1054" dy="1065" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
