@@ -37,10 +37,8 @@ export class Partida {
     this._status = StatusPartida.EM_BATALHA;
   }
 
-  public concluirPartida(resultado?: ResultadoPartida): void {
+  public concluirPartida(resultado: ResultadoPartida): void {
     this._status = StatusPartida.FINALIZADA;
-    if (resultado) {
-      this._resultado = resultado;
-    }
+    this._resultado = resultado;
   }
 }
