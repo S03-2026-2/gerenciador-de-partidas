@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusPartida {
+  AGUARDANDO_BATALHA
+  EM_BATALHA
+  FINALIZADA
+}
+
+model Partida {
+  id          String            @id
+  idJogador1  String
+  idJogador2  String
+  dataCriacao DateTime          @default(now())
+  status      StatusPartida
+  resultado   ResultadoPartida?
+}
+
+model ResultadoPartida {
+  id         String  @id
+  idPartida  String  @unique
+  idVencedor String
+  idPerdedor String
+  detalhes   String
+  partida    Partida @relation(fields: [idPartida], references: [id])
+}
