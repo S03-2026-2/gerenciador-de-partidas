@@ -15,10 +15,6 @@ export class FilaMatchmaking {
       throw new Error('O identificador do jogador e obrigatorio.');
     }
 
-    if (await this.partidaService.jogadorEstaEmPartida(idLimpo)) {
-      throw new Error('O jogador ja esta em uma partida.');
-    }
-
     if (this.filaJogadores.includes(idLimpo)) {
       return null;
     }
@@ -35,12 +31,7 @@ export class FilaMatchmaking {
     const idJ1 = this.filaJogadores.shift()!;
     const idJ2 = this.filaJogadores.shift()!;
 
-    try {
-      return await this.partidaService.iniciarNovaPartida(idJ1, idJ2);
-    } catch (error) {
-      this.filaJogadores.unshift(idJ1, idJ2);
-      throw error;
-    }
+    return this.partidaService.iniciarNovaPartida(idJ1, idJ2);
   }
 
   public obterFila(): readonly string[] {
