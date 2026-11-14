@@ -16,13 +16,13 @@ O módulo é responsável exclusivamente pelo ciclo de pareamento e persistênci
 
 ## 2. Diagrama de Casos de Uso
 
-![Diagrama de Casos de Uso](casos-de-uso-v2.png)
+![Diagrama de Casos de Uso](diagrama-casos-de-uso.png)
 
 ---
 
 ## 3. Diagrama de Classes
 
-![Diagrama de Classes](diagrama-classes-v2.png)
+![Diagrama de Classes](diagrama-classes-partidas.png)
 
 ---
 
