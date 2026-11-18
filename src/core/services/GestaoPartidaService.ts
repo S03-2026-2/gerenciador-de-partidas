@@ -32,12 +32,11 @@ export class GestaoPartidaService {
     }
 
     const partida = new Partida(randomUUID(), idJ1, idJ2);
-    await this.repository.salvarPartida(partida);
 
     await this.batalhaIntegracao.enviarJogadoresParaBatalha(partida.id, idJ1, idJ2);
 
     partida.iniciarBatalha();
-    await this.repository.atualizarPartida(partida);
+    await this.repository.salvarPartida(partida);
 
     return partida;
   }
