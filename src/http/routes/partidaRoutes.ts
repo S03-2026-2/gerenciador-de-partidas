@@ -51,10 +51,38 @@ export function criarPartidaRoutes(controller: PartidaController): Router {
 
   /**
    * @openapi
-   * /partidas/{id}/resultado:
+   * /partidas/resultado:
    *   post:
    *     tags: [Partidas]
    *     summary: Registra o resultado enviado pelo sistema de batalhas
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/RegistroResultadoBody'
+   *     responses:
+   *       200:
+   *         description: Resultado registrado na partida
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Partida'
+   *       400:
+   *         description: Resultado invalido ou partida inexistente
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Erro'
+   */
+  router.post('/partidas/resultado', controller.registrarResultado);
+
+  /**
+   * @openapi
+   * /partidas/{id}/resultado:
+   *   post:
+   *     tags: [Partidas]
+   *     summary: Registra o resultado de uma partida pelo ID na URL
    *     parameters:
    *       - in: path
    *         name: id
@@ -69,8 +97,12 @@ export function criarPartidaRoutes(controller: PartidaController): Router {
    *           schema:
    *             $ref: '#/components/schemas/RegistroResultado'
    *     responses:
-   *       204:
-   *         description: Resultado registrado
+   *       200:
+   *         description: Resultado registrado na partida
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Partida'
    *       400:
    *         description: Resultado invalido ou partida inexistente
    *         content:
@@ -79,6 +111,36 @@ export function criarPartidaRoutes(controller: PartidaController): Router {
    *               $ref: '#/components/schemas/Erro'
    */
   router.post('/partidas/:id/resultado', controller.registrarResultado);
+
+  /**
+   * @openapi
+   * /partidas/historico/{jogadorId}:
+   *   get:
+   *     tags: [Partidas]
+   *     summary: Consulta o historico de partidas de um jogador
+   *     parameters:
+   *       - in: path
+   *         name: jogadorId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Partidas do jogador, da mais recente para a mais antiga
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Partida'
+   *       400:
+   *         description: Identificador ausente
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Erro'
+   */
+  router.get('/partidas/historico/:jogadorId', controller.consultarHistorico);
 
   /**
    * @openapi

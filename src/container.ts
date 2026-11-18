@@ -6,7 +6,7 @@ import { PrismaPartidaRepository } from './infra/repositories/PrismaPartidaRepos
 
 const partidaRepository = new PrismaPartidaRepository();
 const batalhaIntegracao = new HttpBatalhaIntegracao(process.env.BATALHA_API_URL || 'http://localhost:3001');
-const partidaService = new GestaoPartidaService(partidaRepository, batalhaIntegracao);
-const filaMatchmaking = new FilaMatchmaking(partidaService);
+const partidaService = new GestaoPartidaService(partidaRepository);
+const filaMatchmaking = new FilaMatchmaking(partidaService, batalhaIntegracao);
 
 export const partidaController = new PartidaController(filaMatchmaking, partidaService);

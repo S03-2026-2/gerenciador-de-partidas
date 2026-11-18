@@ -14,19 +14,14 @@ enum StatusPartida {
 }
 
 model Partida {
-  id          String            @id
-  idJogador1  String
-  idJogador2  String
-  dataCriacao DateTime          @default(now())
-  status      StatusPartida
-  resultado   ResultadoPartida?
-}
-
-model ResultadoPartida {
-  id         String  @id
-  idPartida  String  @unique
-  idVencedor String
-  idPerdedor String
-  detalhes   String
-  partida    Partida @relation(fields: [idPartida], references: [id])
+  id                String        @id
+  idJogador1        String
+  idJogador2        String
+  dataCriacao       DateTime      @default(now())
+  status            StatusPartida
+  idVencedor        String?
+  idPerdedor        String?
+  pontuacaoJogador1 Int?
+  pontuacaoJogador2 Int?
+  detalhes          String?
 }

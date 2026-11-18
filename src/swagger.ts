@@ -24,17 +24,6 @@ const options: swaggerJSDoc.Options = {
           },
           required: ['erro'],
         },
-        ResultadoPartida: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            idPartida: { type: 'string' },
-            idVencedor: { type: 'string' },
-            idPerdedor: { type: 'string' },
-            detalhes: { type: 'string' },
-          },
-          required: ['id', 'idPartida', 'idVencedor', 'idPerdedor', 'detalhes'],
-        },
         Partida: {
           type: 'object',
           properties: {
@@ -46,7 +35,11 @@ const options: swaggerJSDoc.Options = {
               type: 'string',
               enum: ['AGUARDANDO_BATALHA', 'EM_BATALHA', 'FINALIZADA'],
             },
-            resultado: { $ref: '#/components/schemas/ResultadoPartida' },
+            idVencedor: { type: 'string', nullable: true },
+            idPerdedor: { type: 'string', nullable: true },
+            pontuacaoJogador1: { type: 'integer', nullable: true },
+            pontuacaoJogador2: { type: 'integer', nullable: true },
+            detalhes: { type: 'string', nullable: true },
           },
           required: ['id', 'idJogador1', 'idJogador2', 'dataCriacao', 'status'],
         },
@@ -79,9 +72,23 @@ const options: swaggerJSDoc.Options = {
           properties: {
             idVencedor: { type: 'string' },
             idPerdedor: { type: 'string' },
+            pontuacaoJogador1: { type: 'integer' },
+            pontuacaoJogador2: { type: 'integer' },
             detalhes: { type: 'string' },
           },
-          required: ['idVencedor', 'idPerdedor'],
+          required: ['idVencedor'],
+        },
+        RegistroResultadoBody: {
+          type: 'object',
+          properties: {
+            idPartida: { type: 'string' },
+            idVencedor: { type: 'string' },
+            idPerdedor: { type: 'string' },
+            pontuacaoJogador1: { type: 'integer' },
+            pontuacaoJogador2: { type: 'integer' },
+            detalhes: { type: 'string' },
+          },
+          required: ['idPartida', 'idVencedor'],
         },
         Pontuacao: {
           type: 'object',

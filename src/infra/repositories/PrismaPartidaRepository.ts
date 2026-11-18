@@ -1,11 +1,8 @@
-import { Prisma } from '@prisma/client';
+import { Partida as PrismaPartida } from '@prisma/client';
 import { Partida } from '../../core/entities/Partida';
-import { ResultadoPartida } from '../../core/entities/ResultadoPartida';
 import { StatusPartida } from '../../core/enums/StatusPartida';
 import { IPartidaRepository } from '../../core/ports/IPartidaRepository';
 import { prisma } from '../database/prisma';
-
-type PartidaComResultado = Prisma.PartidaGetPayload<{ include: { resultado: true } }>;
 
 export class PrismaPartidaRepository implements IPartidaRepository {
   public async salvarPartida(partida: Partida): Promise<void> {
@@ -16,18 +13,11 @@ export class PrismaPartidaRepository implements IPartidaRepository {
         idJogador2: partida.idJogador2,
         dataCriacao: partida.dataCriacao,
         status: partida.status,
-      },
-    });
-  }
-
-  public async salvarResultado(resultado: ResultadoPartida): Promise<void> {
-    await prisma.resultadoPartida.create({
-      data: {
-        id: resultado.id,
-        idPartida: resultado.idPartida,
-        idVencedor: resultado.idVencedor,
-        idPerdedor: resultado.idPerdedor,
-        detalhes: resultado.detalhes,
+        idVencedor: partida.idVencedor ?? null,
+        idPerdedor: partida.idPerdedor ?? null,
+        pontuacaoJogador1: partida.pontuacaoJogador1 ?? null,
+        pontuacaoJogador2: partida.pontuacaoJogador2 ?? null,
+        detalhes: partida.detalhes ?? null,
       },
     });
   }
@@ -37,7 +27,6 @@ export class PrismaPartidaRepository implements IPartidaRepository {
       where: {
         OR: [{ idJogador1: idJogador }, { idJogador2: idJogador }],
       },
-      include: { resultado: true },
       orderBy: { dataCriacao: 'desc' },
     });
 
@@ -47,7 +36,6 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   public async buscarPorId(id: string): Promise<Partida | null> {
     const linha = await prisma.partida.findUnique({
       where: { id },
-      include: { resultado: true },
     });
 
     return linha ? this.paraEntidade(linha) : null;
@@ -56,7 +44,14 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   public async atualizarPartida(partida: Partida): Promise<void> {
     await prisma.partida.update({
       where: { id: partida.id },
-      data: { status: partida.status },
+      data: {
+        status: partida.status,
+        idVencedor: partida.idVencedor ?? null,
+        idPerdedor: partida.idPerdedor ?? null,
+        pontuacaoJogador1: partida.pontuacaoJogador1 ?? null,
+        pontuacaoJogador2: partida.pontuacaoJogador2 ?? null,
+        detalhes: partida.detalhes ?? null,
+      },
     });
   }
 
@@ -66,21 +61,20 @@ export class PrismaPartidaRepository implements IPartidaRepository {
         OR: [{ idJogador1: idJogador }, { idJogador2: idJogador }],
         status: { in: [StatusPartida.AGUARDANDO_BATALHA, StatusPartida.EM_BATALHA] },
       },
-      include: { resultado: true },
     });
 
     return linha ? this.paraEntidade(linha) : null;
   }
 
-  private paraEntidade(linha: PartidaComResultado): Partida {
-    const resultado = linha.resultado
-      ? new ResultadoPartida(
-          linha.resultado.id,
-          linha.resultado.idPartida,
-          linha.resultado.idVencedor,
-          linha.resultado.idPerdedor,
-          linha.resultado.detalhes
-        )
+  private paraEntidade(linha: PrismaPartida): Partida {
+    const dadosResultado = linha.idVencedor
+      ? {
+          idVencedor: linha.idVencedor,
+          idPerdedor: linha.idPerdedor ?? undefined,
+          pontuacaoJogador1: linha.pontuacaoJogador1 ?? undefined,
+          pontuacaoJogador2: linha.pontuacaoJogador2 ?? undefined,
+          detalhes: linha.detalhes ?? undefined,
+        }
       : undefined;
 
     return new Partida(
@@ -89,7 +83,7 @@ export class PrismaPartidaRepository implements IPartidaRepository {
       linha.idJogador2,
       linha.dataCriacao,
       StatusPartida[linha.status],
-      resultado
+      dadosResultado
     );
   }
 }
