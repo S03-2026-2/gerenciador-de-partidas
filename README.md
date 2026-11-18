@@ -1,3 +1,266 @@
-# gerenciador-de-partidas
+# Gerenciador de Partidas
 
-UML de casos de uso, UML de classes e anotações sobre outros grupos da primeira atividade em [Entrega 1](docs/Entrega1/).
+Serviço backend responsável pelo gerenciamento de fila de matchmaking, criação e persistência de partidas, integração com o serviço externo de Batalhas e consulta de histórico e pontuação de jogadores.
+
+Documentações de arquitetura e diagramas das entregas anteriores:
+- [Entrega 1](docs/Entrega1/)
+- [Entrega 2](docs/Entrega2/README.md)
+- [Princípios SOLID e UML](docs/UML_SOLID/README.md)
+
+---
+
+## Arquitetura do Projeto
+
+O projeto utiliza **Node.js**, **TypeScript**, **Express** e **PostgreSQL** com **Prisma ORM**, organizado em camadas com **Inversão de Dependência (Ports & Adapters)**:
+
+```
+src/
+├── core/
+│   ├── domain/
+│   │   └── FilaMatchmaking.ts       # Gerenciamento da fila em memória, pareamento e despacho para Batalhas
+│   ├── entities/
+│   │   └── Partida.ts               # Entidade de domínio com ciclo de vida e registro de resultado incorporado
+│   ├── enums/
+│   │   └── StatusPartida.ts         # AGUARDANDO_BATALHA | EM_BATALHA | FINALIZADA
+│   ├── ports/
+│   │   ├── IBatalhaIntegracao.ts    # Contrato de saída para comunicação com o módulo de Batalhas
+│   │   └── IPartidaRepository.ts    # Contrato de saída para persistência de partidas
+│   └── services/
+│       └── GestaoPartidaService.ts  # Criação de partida, registro de resultado e consulta de histórico/pontuação
+├── infra/
+│   ├── database/
+│   │   └── prisma.ts                # Instância do PrismaClient
+│   ├── integrations/
+│   │   ├── BatalhaHttpClient.ts     # Adaptador HTTP real para o serviço de Batalhas
+│   │   └── BatalhaMockIntegracao.ts # Adaptador Mock que simula a batalha e envia o desfecho automaticamente
+│   └── repositories/
+│       └── PrismaPartidaRepository.ts
+├── http/
+│   ├── controllers/
+│   │   └── PartidaController.ts
+│   └── routes/
+│       └── partidaRoutes.ts
+├── container.ts                     # Composição e injeção de dependências
+├── swagger.ts                       # Especificação OpenAPI 3.0
+└── server.ts                        # Inicialização do servidor Express
+```
+
+### Fluxo de Funcionamento
+1. **Entrada na Fila (`FilaMatchmaking`):** Jogadores entram na fila buscando partida. Quando dois jogadores disponíveis formam um par, o `FilaMatchmaking` solicita a criação da `Partida` ao `GestaoPartidaService` e envia os jogadores para o serviço de Batalhas através da porta `IBatalhaIntegracao`.
+2. **Persistência Condicional:** A partida só é gravada como `EM_BATALHA` no banco de dados após o aceite do serviço de Batalhas. Caso o serviço externo esteja indisponível, os jogadores retornam ao início da fila.
+3. **Registro de Resultado (`Partida.registrarResultado`):** Quando a batalha termina, o serviço de Batalhas envia o desfecho para o endpoint de resultado. O `GestaoPartidaService` carrega a `Partida`, aciona o método de domínio `partida.registrarResultado(...)` — que preenche vencedor, perdedor, pontuações e detalhes e altera o status para `FINALIZADA` — e atualiza o registro no PostgreSQL.
+
+---
+
+## Pré-requisitos
+
+- **Node.js** v18+ e **npm**
+- **Docker** e **Docker Compose** (para o banco de dados PostgreSQL local)
+
+---
+
+## Passo a Passo de Instalação e Execução
+
+### 1. Instalar dependências
+
+```bash
+npm install
+```
+
+### 2. Configurar variáveis de ambiente
+
+Copie o arquivo `.env.example` para `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Conteúdo padrão do `.env`:
+
+```env
+PORT=3000
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gerenciador_partidas?schema=public"
+BATALHA_API_URL="http://localhost:3001"
+BATALHA_ENDPOINT_INICIAR="/batalhas"
+CALLBACK_RESULTADO_URL="http://localhost:3000/partidas/resultado"
+USE_MOCK_BATALHA=true
+MOCK_BATALHA_DELAY_MS=3000
+```
+
+#### Alternando entre Modo Mock e Integração Real com Batalhas
+
+- **Modo Mock (`USE_MOCK_BATALHA=true`):**
+  Ideal para testar e demonstrar o Gerenciador de Partidas de forma independente sem precisar que o servidor do grupo de Batalhas esteja rodando. Ao formar um par na fila, o `BatalhaMockIntegracao` aceita a batalha imediatamente e, após `MOCK_BATALHA_DELAY_MS` (padrão: 3 segundos), sorteia o resultado e envia automaticamente um `POST` para `CALLBACK_RESULTADO_URL` (`/partidas/resultado`), finalizando a partida no banco.
+- **Modo Integração Real (`USE_MOCK_BATALHA=false`):**
+  Utiliza o `BatalhaHttpClient`, que envia uma requisição `POST` real para `${BATALHA_API_URL}${BATALHA_ENDPOINT_INICIAR}` com o payload `{ idPartida, idJogador1, idJogador2, callbackUrl }` e aguarda que o serviço externo de Batalhas chame `POST /partidas/resultado` ao término do confronto.
+
+### 3. Subir o banco de dados PostgreSQL via Docker
+
+```bash
+docker-compose up -d
+```
+
+### 4. Executar as migrations e gerar o Prisma Client
+
+```bash
+npx prisma migrate dev --name init
+npx prisma generate
+```
+
+### 5. Iniciar o servidor
+
+Em modo de desenvolvimento (com hot-reload):
+
+```bash
+npm run dev
+```
+
+Ou para build e execução em produção:
+
+```bash
+npm run build
+npm start
+```
+
+O servidor estará disponível em `http://localhost:3000`.
+
+### Documentação Interativa (Swagger UI)
+
+Com o servidor rodando, acesse no navegador:
+
+- **Swagger UI:** `http://localhost:3000/docs`
+- **Health Check:** `http://localhost:3000/health`
+
+---
+
+## Endpoints e Exemplos de Uso (`curl`)
+
+### 1. Entrar na fila de matchmaking
+
+**Requisição — Primeiro jogador (`POST /partidas/fila`):**
+
+```bash
+curl -X POST http://localhost:3000/partidas/fila \
+  -H "Content-Type: application/json" \
+  -d '{"idJogador": "jogador-1"}'
+```
+
+**Resposta (`202 Accepted`):**
+```json
+{
+  "mensagem": "Aguardando adversario."
+}
+```
+
+**Requisição — Segundo jogador (`POST /partidas/fila`):**
+
+```bash
+curl -X POST http://localhost:3000/partidas/fila \
+  -H "Content-Type: application/json" \
+  -d '{"idJogador": "jogador-2"}'
+```
+
+**Resposta (`201 Created` — Par formado e partida despachada):**
+```json
+{
+  "id": "e4c8a9c0-1234-4a5b-9c8d-112233445566",
+  "idJogador1": "jogador-1",
+  "idJogador2": "jogador-2",
+  "dataCriacao": "2026-11-18T19:30:00.000Z",
+  "status": "EM_BATALHA",
+  "idVencedor": null,
+  "idPerdedor": null,
+  "pontuacaoJogador1": null,
+  "pontuacaoJogador2": null,
+  "detalhes": null
+}
+```
+
+### 2. Consultar fila atual (`GET /partidas/fila`)
+
+```bash
+curl http://localhost:3000/partidas/fila
+```
+
+**Resposta (`200 OK`):**
+```json
+{
+  "fila": []
+}
+```
+
+### 3. Registrar resultado da batalha (`POST /partidas/resultado`)
+
+Endpoint chamado pelo serviço de Batalhas (ou automaticamente pelo modo Mock após 3 segundos) para informar o desfecho da partida. Também aceita `POST /partidas/:id/resultado`.
+
+```bash
+curl -X POST http://localhost:3000/partidas/resultado \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idPartida": "e4c8a9c0-1234-4a5b-9c8d-112233445566",
+    "idVencedor": "jogador-1",
+    "idPerdedor": "jogador-2",
+    "pontuacaoJogador1": 85,
+    "pontuacaoJogador2": 40,
+    "detalhes": "Vitoria por nocaute no 3o turno"
+  }'
+```
+
+**Resposta (`200 OK`):**
+```json
+{
+  "id": "e4c8a9c0-1234-4a5b-9c8d-112233445566",
+  "idJogador1": "jogador-1",
+  "idJogador2": "jogador-2",
+  "dataCriacao": "2026-11-18T19:30:00.000Z",
+  "status": "FINALIZADA",
+  "idVencedor": "jogador-1",
+  "idPerdedor": "jogador-2",
+  "pontuacaoJogador1": 85,
+  "pontuacaoJogador2": 40,
+  "detalhes": "Vitoria por nocaute no 3o turno"
+}
+```
+
+### 4. Consultar histórico de partidas de um jogador (`GET /partidas/historico/:jogadorId`)
+
+Também disponível em `GET /jogadores/:idJogador/partidas`.
+
+```bash
+curl http://localhost:3000/partidas/historico/jogador-1
+```
+
+**Resposta (`200 OK`):**
+```json
+[
+  {
+    "id": "e4c8a9c0-1234-4a5b-9c8d-112233445566",
+    "idJogador1": "jogador-1",
+    "idJogador2": "jogador-2",
+    "dataCriacao": "2026-11-18T19:30:00.000Z",
+    "status": "FINALIZADA",
+    "idVencedor": "jogador-1",
+    "idPerdedor": "jogador-2",
+    "pontuacaoJogador1": 85,
+    "pontuacaoJogador2": 40,
+    "detalhes": "Vitoria por nocaute no 3o turno"
+  }
+]
+```
+
+### 5. Consultar estatísticas e pontuação do jogador (`GET /jogadores/:idJogador/pontuacao`)
+
+```bash
+curl http://localhost:3000/jogadores/jogador-1/pontuacao
+```
+
+**Resposta (`200 OK`):**
+```json
+{
+  "idJogador": "jogador-1",
+  "partidasJogadas": 1,
+  "vitorias": 1,
+  "derrotas": 0,
+  "pontos": 3
+}
+```
