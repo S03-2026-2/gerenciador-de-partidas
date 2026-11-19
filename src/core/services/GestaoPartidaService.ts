@@ -4,6 +4,7 @@ import { ResultadoPartida } from '../entities/ResultadoPartida';
 import { StatusPartida } from '../enums/StatusPartida';
 import { IBatalhaIntegracao } from '../ports/IBatalhaIntegracao';
 import { IPartidaRepository } from '../ports/IPartidaRepository';
+import {PartidaFactory} from "../factories/PartidaFactory";
 
 export interface PontuacaoJogador {
   idJogador: string;
@@ -31,11 +32,12 @@ export class GestaoPartidaService {
       throw new Error('Um jogador nao pode enfrentar a si mesmo.');
     }
 
-    const partida = new Partida(randomUUID(), idJ1, idJ2);
+    const partida = PartidaFactory.criar(idJ1, idJ2);
 
     await this.batalhaIntegracao.enviarJogadoresParaBatalha(partida.id, idJ1, idJ2);
 
     partida.iniciarBatalha();
+    
     await this.repository.salvarPartida(partida);
 
     return partida;
