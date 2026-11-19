@@ -1,8 +1,6 @@
-import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 import { FilaMatchmaking } from '../../core/domain/FilaMatchmaking';
 import { Partida } from '../../core/entities/Partida';
-import { ResultadoPartida } from '../../core/entities/ResultadoPartida';
 import { GestaoPartidaService } from '../../core/services/GestaoPartidaService';
 
 export class PartidaController {
@@ -32,11 +30,25 @@ export class PartidaController {
 
   public registrarResultado = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { idVencedor, idPerdedor, detalhes } = req.body;
-      const resultado = new ResultadoPartida(randomUUID(), req.params.id, idVencedor, idPerdedor, detalhes ?? '');
+      const idPartida = String(req.params.id ?? req.body.idPartida ?? '');
+      const { idVencedor, idPerdedor, pontuacaoJogador1, pontuacaoJogador2, detalhes } = req.body;
 
-      await this.partidaService.receberResultadoBatalha(resultado);
-      res.status(204).send();
+      const partida = await this.partidaService.registrarResultadoPartida({
+        idPartida,
+        idVencedor: String(idVencedor ?? ''),
+        idPerdedor: idPerdedor ? String(idPerdedor) : undefined,
+        pontuacaoJogador1:
+          pontuacaoJogador1 !== undefined && pontuacaoJogador1 !== null
+            ? Number(pontuacaoJogador1)
+            : undefined,
+        pontuacaoJogador2:
+          pontuacaoJogador2 !== undefined && pontuacaoJogador2 !== null
+            ? Number(pontuacaoJogador2)
+            : undefined,
+        detalhes: detalhes !== undefined && detalhes !== null ? String(detalhes) : undefined,
+      });
+
+      res.status(200).json(this.paraResposta(partida));
     } catch (error) {
       res.status(400).json({ erro: this.mensagemDeErro(error) });
     }
@@ -44,7 +56,8 @@ export class PartidaController {
 
   public consultarHistorico = async (req: Request, res: Response): Promise<void> => {
     try {
-      const partidas = await this.partidaService.consultarHistorico(req.params.idJogador);
+      const idJogador = String(req.params.jogadorId ?? req.params.idJogador ?? '');
+      const partidas = await this.partidaService.consultarHistorico(idJogador);
       res.status(200).json(partidas.map((partida) => this.paraResposta(partida)));
     } catch (error) {
       res.status(400).json({ erro: this.mensagemDeErro(error) });
@@ -53,7 +66,8 @@ export class PartidaController {
 
   public consultarPontuacao = async (req: Request, res: Response): Promise<void> => {
     try {
-      const pontuacao = await this.partidaService.consultarPontuacao(req.params.idJogador);
+      const idJogador = String(req.params.jogadorId ?? req.params.idJogador ?? '');
+      const pontuacao = await this.partidaService.consultarPontuacao(idJogador);
       res.status(200).json(pontuacao);
     } catch (error) {
       res.status(400).json({ erro: this.mensagemDeErro(error) });
@@ -75,7 +89,11 @@ export class PartidaController {
       idJogador2: partida.idJogador2,
       dataCriacao: partida.dataCriacao,
       status: partida.status,
-      resultado: partida.resultado,
+      idVencedor: partida.idVencedor ?? null,
+      idPerdedor: partida.idPerdedor ?? null,
+      pontuacaoJogador1: partida.pontuacaoJogador1 ?? null,
+      pontuacaoJogador2: partida.pontuacaoJogador2 ?? null,
+      detalhes: partida.detalhes ?? null,
     };
   }
 

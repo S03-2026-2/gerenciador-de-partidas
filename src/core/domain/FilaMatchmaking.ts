@@ -1,12 +1,31 @@
 import { Partida } from '../entities/Partida';
+import { ConfigEndpointsBatalha, IBatalhaIntegracao } from '../ports/IBatalhaIntegracao';
 import { GestaoPartidaService } from '../services/GestaoPartidaService';
 
 export class FilaMatchmaking {
   private filaJogadores: string[] = [];
   private readonly partidaService: GestaoPartidaService;
+  private readonly batalhaIntegracao: IBatalhaIntegracao;
+  private readonly endpointsBatalha: ConfigEndpointsBatalha;
 
-  constructor(partidaService: GestaoPartidaService) {
+  constructor(
+    partidaService: GestaoPartidaService,
+    batalhaIntegracao: IBatalhaIntegracao,
+    endpointsBatalha?: Partial<ConfigEndpointsBatalha>
+  ) {
     this.partidaService = partidaService;
+    this.batalhaIntegracao = batalhaIntegracao;
+    this.endpointsBatalha = {
+      urlBase: endpointsBatalha?.urlBase ?? process.env.BATALHA_API_URL ?? 'http://localhost:3001',
+      endpointIniciarBatalha:
+        endpointsBatalha?.endpointIniciarBatalha ?? process.env.BATALHA_ENDPOINT_INICIAR ?? '/batalhas',
+      endpointCallbackResultado:
+        endpointsBatalha?.endpointCallbackResultado ?? '/partidas/resultado',
+    };
+  }
+
+  public obterConfigEndpointsBatalha(): ConfigEndpointsBatalha {
+    return { ...this.endpointsBatalha };
   }
 
   public async buscarPartida(idJogador: string): Promise<Partida | null> {
@@ -36,7 +55,9 @@ export class FilaMatchmaking {
     const idJ2 = this.filaJogadores.shift()!;
 
     try {
-      return await this.partidaService.iniciarNovaPartida(idJ1, idJ2);
+      const partida = this.partidaService.criarPartida(idJ1, idJ2);
+      await this.batalhaIntegracao.enviarJogadoresParaBatalha(partida.id, idJ1, idJ2);
+      return await this.partidaService.salvarPartidaEmBatalha(partida);
     } catch (error) {
       this.filaJogadores.unshift(idJ1, idJ2);
       throw error;
