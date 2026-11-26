@@ -5,6 +5,7 @@ import { PartidaController } from './http/controllers/PartidaController';
 import { BatalhaHttpClient } from './infra/integrations/BatalhaHttpClient';
 import { BatalhaMockIntegracao } from './infra/integrations/BatalhaMockIntegracao';
 import { PrismaPartidaRepository } from './infra/repositories/PrismaPartidaRepository';
+import {Duelo1v1Strategy} from "./core/domain/matchmaking/Duelo1v1Strategy";
 
 const porta = process.env.PORT || 3000;
 const endpointsBatalha: ConfigEndpointsBatalha = {
@@ -26,9 +27,12 @@ const batalhaIntegracao: IBatalhaIntegracao = usarMockBatalha
     })
   : new BatalhaHttpClient(endpointsBatalha);
 
+const estrategia = new Duelo1v1Strategy();
+
 const filaMatchmaking = new FilaMatchmaking(
   partidaService,
   batalhaIntegracao,
+  estrategia,
   endpointsBatalha
 );
 

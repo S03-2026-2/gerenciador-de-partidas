@@ -1,20 +1,24 @@
 import { Partida } from '../entities/Partida';
 import { ConfigEndpointsBatalha, IBatalhaIntegracao } from '../ports/IBatalhaIntegracao';
 import { GestaoPartidaService } from '../services/GestaoPartidaService';
+import { IMatchmakingStrategy } from './matchmaking/IMatchmakingStrategy';
 
 export class FilaMatchmaking {
   private filaJogadores: string[] = [];
   private readonly partidaService: GestaoPartidaService;
   private readonly batalhaIntegracao: IBatalhaIntegracao;
+  private readonly estrategia: IMatchmakingStrategy;
   private readonly endpointsBatalha: ConfigEndpointsBatalha;
 
   constructor(
     partidaService: GestaoPartidaService,
     batalhaIntegracao: IBatalhaIntegracao,
+    estrategia: IMatchmakingStrategy,
     endpointsBatalha?: Partial<ConfigEndpointsBatalha>
   ) {
     this.partidaService = partidaService;
     this.batalhaIntegracao = batalhaIntegracao;
+    this.estrategia = estrategia;
     this.endpointsBatalha = {
       urlBase: endpointsBatalha?.urlBase ?? process.env.BATALHA_API_URL ?? 'http://localhost:3001',
       endpointIniciarBatalha:
@@ -47,12 +51,14 @@ export class FilaMatchmaking {
   }
 
   private async formarPartida(): Promise<Partida | null> {
-    if (this.filaJogadores.length < 2) {
+    const par = this.estrategia.formarPar(this.filaJogadores);
+    if (!par) {
       return null;
     }
 
-    const idJ1 = this.filaJogadores.shift()!;
-    const idJ2 = this.filaJogadores.shift()!;
+    const [idJ1, idJ2] = par;
+
+    this.filaJogadores = this.filaJogadores.filter((id) => id !== idJ1 && id !== idJ2);
 
     try {
       const partida = this.partidaService.criarPartida(idJ1, idJ2);
