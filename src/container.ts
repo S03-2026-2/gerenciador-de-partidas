@@ -6,6 +6,7 @@ import { BatalhaHttpClient } from './infra/integrations/BatalhaHttpClient';
 import { BatalhaMockIntegracao } from './infra/integrations/BatalhaMockIntegracao';
 import { PrismaPartidaRepository } from './infra/repositories/PrismaPartidaRepository';
 import {Duelo1v1Strategy} from "./core/domain/matchmaking/Duelo1v1Strategy";
+import {PontuacaoPorVitoriaRegra} from "./core/scoring/PontuacaoPorVitoriaRegra";
 
 const porta = process.env.PORT || 3000;
 const endpointsBatalha: ConfigEndpointsBatalha = {
@@ -16,7 +17,8 @@ const endpointsBatalha: ConfigEndpointsBatalha = {
 };
 
 const partidaRepository = new PrismaPartidaRepository();
-const partidaService = new GestaoPartidaService(partidaRepository);
+const regraPontuacao = new PontuacaoPorVitoriaRegra()
+const partidaService = new GestaoPartidaService(partidaRepository, regraPontuacao);
 
 const usarMockBatalha = String(process.env.USE_MOCK_BATALHA).toLowerCase() === 'true';
 
