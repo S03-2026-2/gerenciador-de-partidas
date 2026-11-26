@@ -1,4 +1,11 @@
-import { ConfigEndpointsBatalha, IBatalhaIntegracao } from '../../core/ports/IBatalhaIntegracao';
+import { ConfigEndpointsBatalha, ErroIntegracaoBatalha,
+  OpcoesEnvioBatalha, IBatalhaIntegracao } from '../../core/ports/IBatalhaIntegracao';
+
+const STATUS_TRANSITORIOS = new Set([408, 429]);
+
+function statusEhTransitorio(status: number): boolean {
+  return status >= 500 || STATUS_TRANSITORIOS.has(status);
+}
 
 export class BatalhaHttpClient implements IBatalhaIntegracao {
   private readonly config: ConfigEndpointsBatalha;
