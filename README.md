@@ -29,7 +29,7 @@ src/
 │       └── GestaoPartidaService.ts  # Criação de partida, registro de resultado e consulta de histórico/pontuação
 ├── infra/
 │   ├── database/
-│   │   └── prisma.ts                # Instância do PrismaClient
+│   │   └── PrismaConnection.ts                # Instância do PrismaClient
 │   ├── integrations/
 │   │   ├── BatalhaHttpClient.ts     # Adaptador HTTP real para o serviço de Batalhas
 │   │   └── BatalhaMockIntegracao.ts # Adaptador Mock que simula a batalha e envia o desfecho automaticamente
@@ -264,3 +264,64 @@ curl http://localhost:3000/jogadores/jogador-1/pontuacao
   "pontos": 3
 }
 ```
+## Design Patterns
+
+Esta seção descreve os padrões de projeto usados no código, onde cada um está e por que foi escolhido.
+
+### Singleton: conexão com o banco
+
+**Onde:** `PrismaConnection`, usada pelo `PrismaPartidaRepository`.
+
+**Por quê:** cada `PrismaClient` abre o seu próprio pool de conexões. Se alguém crias-se uma nova instância por engano em outro ponto do código, o sistema poderia esgotar as conexões do PostgreSQL.
+
+**Como funciona:** o construtor é privado e o acesso é feito por `PrismaConnection.getClient()`. A instância é criada na primeira chamada (criação preguiçosa) e reaproveitada nas seguintes.
+
+### Strategy: regra de pareamento
+
+**Onde:** `IMatchmakingStrategy` e `Duelo1v1Strategy`, usadas pela `FilaMatchmaking`.
+
+**Por quê:** antes, a regra "pega os dois primeiros da fila" estava escrita dentro da `FilaMatchmaking`. Qualquer regra nova (por ranking, por tempo de espera, 2v2) exigiria editar essa classe, o que viola o princípio Aberto/Fechado do SOLID.
+
+**Como funciona:** a fila só gerencia a lista de jogadores. Quem decide quem se enfrenta é a estratégia, pelo método `formarPar(fila)`, que devolve o par escolhido ou `null` se ainda não dá para formar. A implementação atual, `Duelo1v1Strategy`, pareia os dois jogadores há mais tempo na fila (FIFO).
+
+**Como estender:** crie uma classe que implemente `IMatchmakingStrategy` e passe-a ao `FilaMatchmaking` no `container.ts`. Nenhuma outra classe precisa mudar.
+
+### Strategy: regra de pontuação
+
+**Onde:** `IRegraPontuacao` e `PontuacaoPorVitoriaRegra`, usadas pelo `GestaoPartidaService`.
+
+**Por quê:** o cálculo `vitórias × 3` estava fixo em `consultarPontuacao`, misturado com a consulta de histórico. Mudar a regra (bônus, penalidade por derrota, pontuação por desempenho) obrigaria a alterar o serviço.
+
+**Como funciona:** o serviço recebe uma `IRegraPontuacao` no construtor e delega o cálculo a ela. A regra atual, `PontuacaoPorVitoriaRegra`, dá 3 pontos por vitória e nenhum por derrota. O valor é configurável no construtor.
+
+### Decorator: resiliência da integração com Batalhas
+
+**Onde:** `TimeoutBatalhaDecorator`, `RetryBatalhaDecorator` e `LogBatalhaDecorator`, todos implementando `IBatalhaIntegracao`.
+
+**Por quê:** o `BatalhaHttpClient` fazia um `fetch` sem limite de tempo: se o serviço de Batalhas travasse, a requisição do jogador ficava pendurada. Também não havia nova tentativa em falhas passageiras nem registro das chamadas. Colocar tudo isso dentro do cliente HTTP misturaria responsabilidades.
+
+**Como funciona:** cada decorator recebe outro `IBatalhaIntegracao`, adiciona um comportamento e delega a chamada. Eles são empilhados no `container.ts` nesta ordem, de dentro para fora:
+
+```
+BatalhaHttpClient → Timeout → Log → Retry
+```
+
+| Camada | Responsabilidade |
+|---|---|
+| `Timeout` | Cancela cada tentativa que passar de `BATALHA_TIMEOUT_MS` (via `AbortSignal`) |
+| `Log` | Registra início, sucesso ou falha e a duração de cada tentativa |
+| `Retry` | Repete falhas transitórias até `BATALHA_MAX_TENTATIVAS`, com espera que dobra a cada tentativa a partir de `BATALHA_RETRY_DELAY_MS` |
+
+**Quais falhas são repetidas:** o `BatalhaHttpClient` lança `ErroIntegracaoBatalha` com a flag `retentavel`. Erros de rede, timeout e HTTP 408, 429 e 5xx são repetidos. Erros definitivos (outros 4xx, como 400) e erros inesperados são propagados imediatamente.
+
+**Observações:**
+- Os decorators só são usados no modo real. Com `USE_MOCK_BATALHA=true` o mock é usado direto, pois não há rede para falhar.
+- Como o `POST` pode ser reenviado, o serviço de Batalhas deve tratar `idPartida` como chave de idempotência, para não criar duas batalhas para a mesma partida.
+
+### Padrões que já existiam na arquitetura
+
+| Pattern | Onde | Papel |
+|---|---|---|
+| Repository | `IPartidaRepository` e `PrismaPartidaRepository` | Isola a persistência do domínio |
+| Adapter (Ports & Adapters) | `IBatalhaIntegracao`, `BatalhaHttpClient` e `BatalhaMockIntegracao` | Isola o serviço externo de Batalhas e permite trocar a implementação |
+| Injeção de dependência | `container.ts` | Monta e conecta todas as peças em um único lugar |
