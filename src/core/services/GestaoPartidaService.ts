@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { DadosResultadoPartida, Partida } from '../entities/Partida';
 import { StatusPartida } from '../enums/StatusPartida';
 import { IPartidaRepository } from '../ports/IPartidaRepository';
+import { IRegraPontuacao } from '../scoring/IRegraPontuacao';
 
 export interface PontuacaoJogador {
   idJogador: string;
@@ -17,9 +18,11 @@ export interface RegistrarResultadoInput extends DadosResultadoPartida {
 
 export class GestaoPartidaService {
   private readonly repository: IPartidaRepository;
+  private readonly regraPontuacao: IRegraPontuacao;
 
-  constructor(repository: IPartidaRepository) {
+  constructor(repository: IPartidaRepository, regraPontuacao: IRegraPontuacao) {
     this.repository = repository;
+    this.regraPontuacao = regraPontuacao;
   }
 
   public criarPartida(idJ1: string, idJ2: string): Partida {
@@ -102,7 +105,7 @@ export class GestaoPartidaService {
       partidasJogadas: finalizadas.length,
       vitorias,
       derrotas,
-      pontos: vitorias * 3,
+      pontos: this.regraPontuacao.calcular(idJogador, finalizadas),
     };
   }
 }

@@ -1,12 +1,17 @@
-import { Partida as PrismaPartida } from '@prisma/client';
+import {  PrismaClient, Partida as PrismaPartida } from '@prisma/client';
 import { Partida } from '../../core/entities/Partida';
 import { StatusPartida } from '../../core/enums/StatusPartida';
 import { IPartidaRepository } from '../../core/ports/IPartidaRepository';
-import { prisma } from '../database/prisma';
+import { PrismaConnection } from '../database/PrismaConnection';
+
 
 export class PrismaPartidaRepository implements IPartidaRepository {
+  private get prisma(): PrismaClient {
+    return PrismaConnection.getClient();
+  }
+
   public async salvarPartida(partida: Partida): Promise<void> {
-    await prisma.partida.create({
+    await this.prisma.partida.create({
       data: {
         id: partida.id,
         idJogador1: partida.idJogador1,
@@ -23,7 +28,7 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   }
 
   public async buscarPorJogador(idJogador: string): Promise<Partida[]> {
-    const linhas = await prisma.partida.findMany({
+    const linhas = await this.prisma.partida.findMany({
       where: {
         OR: [{ idJogador1: idJogador }, { idJogador2: idJogador }],
       },
@@ -34,7 +39,7 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   }
 
   public async buscarPorId(id: string): Promise<Partida | null> {
-    const linha = await prisma.partida.findUnique({
+    const linha = await this.prisma.partida.findUnique({
       where: { id },
     });
 
@@ -42,7 +47,7 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   }
 
   public async atualizarPartida(partida: Partida): Promise<void> {
-    await prisma.partida.update({
+    await this.prisma.partida.update({
       where: { id: partida.id },
       data: {
         status: partida.status,
@@ -56,7 +61,7 @@ export class PrismaPartidaRepository implements IPartidaRepository {
   }
 
   public async buscarPartidaEmAndamento(idJogador: string): Promise<Partida | null> {
-    const linha = await prisma.partida.findFirst({
+    const linha = await this.prisma.partida.findFirst({
       where: {
         OR: [{ idJogador1: idJogador }, { idJogador2: idJogador }],
         status: { in: [StatusPartida.AGUARDANDO_BATALHA, StatusPartida.EM_BATALHA] },

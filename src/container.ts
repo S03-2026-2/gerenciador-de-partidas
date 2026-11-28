@@ -5,6 +5,18 @@ import { PartidaController } from './http/controllers/PartidaController';
 import { BatalhaHttpClient } from './infra/integrations/BatalhaHttpClient';
 import { BatalhaMockIntegracao } from './infra/integrations/BatalhaMockIntegracao';
 import { PrismaPartidaRepository } from './infra/repositories/PrismaPartidaRepository';
+import {Duelo1v1Strategy} from "./core/domain/matchmaking/Duelo1v1Strategy";
+import {PontuacaoPorVitoriaRegra} from "./core/scoring/PontuacaoPorVitoriaRegra";
+import {LogBatalhaDecorator} from "./infra/decorators/LogBatalhaDecorator";
+import {TimeoutBatalhaDecorator} from "./infra/decorators/TimeoutBatalhaDecorator";
+import {RetryBatalhaDecorator} from "./infra/decorators/RetryBatalhaDecorator";
+
+function lerNumero(valor: string | undefined, padrao: number, minimo = 0): number {
+    const numero = Number(valor);
+    return valor !== undefined && valor.trim() !== '' && Number.isFinite(numero) && numero >= minimo
+        ? numero
+        : padrao;
+}
 
 const porta = process.env.PORT || 3000;
 const endpointsBatalha: ConfigEndpointsBatalha = {
@@ -15,20 +27,37 @@ const endpointsBatalha: ConfigEndpointsBatalha = {
 };
 
 const partidaRepository = new PrismaPartidaRepository();
-const partidaService = new GestaoPartidaService(partidaRepository);
+const regraPontuacao = new PontuacaoPorVitoriaRegra()
+const partidaService = new GestaoPartidaService(partidaRepository, regraPontuacao);
 
 const usarMockBatalha = String(process.env.USE_MOCK_BATALHA).toLowerCase() === 'true';
+
+const batalhaHttpResiliente = new RetryBatalhaDecorator(
+    new LogBatalhaDecorator(
+        new TimeoutBatalhaDecorator(
+            new BatalhaHttpClient(endpointsBatalha),
+            lerNumero(process.env.BATALHA_TIMEOUT_MS, 5000, 1)
+        )
+    ),
+    {
+        maxTentativas: lerNumero(process.env.BATALHA_MAX_TENTATIVAS, 3, 1),
+        delayInicialMs: lerNumero(process.env.BATALHA_RETRY_DELAY_MS, 500),
+    }
+)
 
 const batalhaIntegracao: IBatalhaIntegracao = usarMockBatalha
   ? new BatalhaMockIntegracao({
       callbackResultadoUrl: endpointsBatalha.endpointCallbackResultado,
       partidaService,
     })
-  : new BatalhaHttpClient(endpointsBatalha);
+  : batalhaHttpResiliente;
+
+const estrategia = new Duelo1v1Strategy();
 
 const filaMatchmaking = new FilaMatchmaking(
   partidaService,
   batalhaIntegracao,
+  estrategia,
   endpointsBatalha
 );
 

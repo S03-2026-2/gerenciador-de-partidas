@@ -1,4 +1,11 @@
-import { ConfigEndpointsBatalha, IBatalhaIntegracao } from '../../core/ports/IBatalhaIntegracao';
+import { ConfigEndpointsBatalha, ErroIntegracaoBatalha,
+  OpcoesEnvioBatalha, IBatalhaIntegracao } from '../../core/ports/IBatalhaIntegracao';
+
+const STATUS_TRANSITORIOS = new Set([408, 429]);
+
+function statusEhTransitorio(status: number): boolean {
+  return status >= 500 || STATUS_TRANSITORIOS.has(status);
+}
 
 export class BatalhaHttpClient implements IBatalhaIntegracao {
   private readonly config: ConfigEndpointsBatalha;
@@ -28,26 +35,39 @@ export class BatalhaHttpClient implements IBatalhaIntegracao {
   public async enviarJogadoresParaBatalha(
     idPartida: string,
     idJ1: string,
-    idJ2: string
+    idJ2: string,
+    opcoes?: OpcoesEnvioBatalha
   ): Promise<void> {
     const base = this.config.urlBase.replace(/\/+$/, '');
     const caminho = this.config.endpointIniciarBatalha.startsWith('/')
       ? this.config.endpointIniciarBatalha
       : `/${this.config.endpointIniciarBatalha}`;
 
-    const resposta = await fetch(`${base}${caminho}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idPartida,
-        idJogador1: idJ1,
-        idJogador2: idJ2,
-        callbackUrl: this.config.endpointCallbackResultado,
-      }),
-    });
+    let resposta: Response;
+    try {
+      resposta = await fetch(`${base}${caminho}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idPartida,
+          idJogador1: idJ1,
+          idJogador2: idJ2,
+          callbackUrl: this.config.endpointCallbackResultado,
+        }),
+        signal: opcoes?.signal,
+      });
+    } catch (error) {
+      throw new ErroIntegracaoBatalha('Falha ao enviar jogadores para a batalha: servico indisponivel.', {
+        retentavel: true,
+        cause: error,
+      });
+    }
 
     if (!resposta.ok) {
-      throw new Error('Falha ao enviar jogadores para a batalha.');
+      throw new ErroIntegracaoBatalha(
+          `Falha ao enviar jogadores para a batalha (HTTP ${resposta.status}).`,
+          { retentavel: statusEhTransitorio(resposta.status), status: resposta.status }
+      );
     }
   }
 }
